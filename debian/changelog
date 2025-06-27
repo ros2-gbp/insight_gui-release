@@ -1,0 +1,15 @@
+ros-jazzy-insight-gui (0.1.1-1noble) noble; urgency=high
+
+  * update dependencies
+  * Contributors: Julian Müller
+
+ -- Julian Müller <julian.mueller@iwb.tum.de>  Fri, 27 Jun 2025 22:00:00 -0000
+
+ros-jazzy-insight-gui (0.1.0-1noble) noble; urgency=high
+
+  * first release
+  * Contributors: Julian Müller
+
+ -- Julian Müller <julian.mueller@iwb.tum.de>  Sun, 22 Jun 2025 22:00:00 -0000
+
+
