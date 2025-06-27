@@ -23,21 +23,24 @@
 -->
 <package format="3">
     <name>insight_gui</name>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <description>Insight is a minimalist GUI alternative to rqt. It is a GTK4-based tool for exploring ROS2 topics, services, and messages, featuring the GNOME Adwaita style.</description>
     <maintainer email="julian.mueller@iwb.tum.de">Julian Müller</maintainer>
     <license>GPL-3.0-only</license>
     <author email="julian.mueller@iwb.tum.de">Julian Müller</author>
 
     <exec_depend>rclpy</exec_depend>
+    <exec_depend>ros2cli</exec_depend>
+    <exec_depend>ros2launch</exec_depend>
+    <exec_depend>turtlesim</exec_depend>
 
-    <!-- <exec_depend>libgtk-4-dev</exec_depend> -->
-    <!-- <exec_depend>libgirepository1.0-dev</exec_depend> -->
-    <!-- <exec_depend>adwaita-icon-theme</exec_depend> -->
-    <!-- <exec_depend>libadwaita-1-dev</exec_depend> -->
-    <!-- <exec_depend>libglib2.0-dev</exec_depend> -->
-    <!-- <exec_depend>python3-gi</exec_depend> -->
-    <!-- <exec_depend>python3-gi-cairo</exec_depend> -->
+    <exec_depend>gtk4</exec_depend>
+    <exec_depend>libgirepository-dev</exec_depend>
+    <exec_depend>adwaita-icon-theme</exec_depend>
+    <exec_depend>libadwaita-dev</exec_depend>
+    <exec_depend>libglib-dev</exec_depend>
+    <exec_depend>python3-gi</exec_depend>
+    <exec_depend>python3-gi-cairo</exec_depend>
     <exec_depend>python3-networkx</exec_depend>
     <exec_depend>python3-pygraphviz</exec_depend>
 
