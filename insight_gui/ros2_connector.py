@@ -29,6 +29,7 @@ from operator import itemgetter
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.publisher import Publisher, MsgType
 from rclpy.subscription import Subscription
 from rclpy.service import Service, SrvType, SrvTypeRequest, SrvTypeResponse
@@ -37,6 +38,7 @@ from rclpy.action import ActionClient
 from rclpy.topic_or_service_is_hidden import topic_or_service_is_hidden
 from rclpy.action import get_action_names_and_types
 from rclpy.action.graph import get_action_client_names_and_types_by_node, get_action_server_names_and_types_by_node
+from rclpy.logging import LoggingSeverity
 
 # from rosidl_runtime_py.utilities import get_action
 
@@ -145,8 +147,12 @@ class ROS2Connector:
     def on_node_state_changed(self, action: Gio.Action, value: GLib.Variant):
         action.set_state(GLib.Variant.new_boolean(self.is_running))
 
-    def add_publisher(self, msg_type: MsgType, topic_name: str, queue_size: int = 10) -> Publisher:
-        return self.node.create_publisher(msg_type, topic_name, queue_size)
+    def add_publisher(
+        self, msg_type: MsgType, topic_name: str, qos_profile: QoSProfile | int = 10, **kwargs
+    ) -> Publisher:
+        if isinstance(qos_profile, int):
+            qos_profile = QoSProfile(depth=qos_profile)
+        return self.node.create_publisher(msg_type, topic_name, qos_profile=qos_profile)
 
     def destroy_publisher(self, pub: Publisher) -> bool:
         if not self.node:
@@ -935,3 +941,19 @@ class ROS2Connector:
         self.get_available_topics(use_cache=True)
         self.get_available_services(use_cache=True)
         self.get_available_actions(use_cache=True)
+
+    def log(self, message: str, level: str = "info") -> None:
+        """Log a message with the specified severity level (debug, [info], warning, error, fatal)."""
+        if level == "info":
+            self.node.get_logger().info(message)
+        elif level == "warning":
+            self.node.get_logger().warning(message)
+        elif level == "error":
+            self.node.get_logger().error(message)
+        elif level == "fatal":
+            self.node.get_logger().fatal(message)
+        elif level == "debug":
+            self.node.get_logger().debug(message)
+        else:
+            self.node.get_logger().info(f"{level} is not a valid logging level. Defaulting to info.")
+            self.node.get_logger().info(message)

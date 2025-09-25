@@ -32,7 +32,8 @@
     - ~~add topic publisher (+once)~~
     - ~~add a refresh to all "static" pages, e.g. TopicInfoPage, as this might also change while it is open~~
     - ~~a launch page to directly launch nodes with a set of arguments~~
-    - static/dynamic tf2 broadcaster
+    - ~~add an overview page, where all pages are shown as cards (and are maybe grouped? and ofc searchable)~~
+    - ~~static~~/dynamic tf2 broadcaster
     - tf inspection subpage (show the stuff that rviz shows)
     - service echo (listener)
     - qos info page
@@ -45,7 +46,10 @@
     - documentation Page, with Links to the ros2 webpages? maybe even a webview renderer?
     - clock page with manipulation options
     - bookmarks page to save links to pages for later
+        - use `book-ribbon-symbolic` and `bookmark-add-symbolic`
     - image pub page (load image/video and stream it)
+        - use `linked-camera-symbolic` and 
+        - also move the image pages then to its own group
 
 - additional settings:
     - ~~maybe add an option, that all parameter-related services are hidden (/describe_parameters etc)~~
@@ -80,6 +84,13 @@
     - Logger page:
         - save the list of log files as eg csv
         - inspect certain logs closer by double clicking them
+    - graph page:
+        - add a setting, that opens flap to the right
+        - add services/actions/parameters
+        - allow to toggle all these blocks
+        - add blacklists
+        - for topics/services/actions show the type as a subtitle?
+        - instead of opening the blocks as their (node/topic/etc) page, a graph_local_page is opened, which shows only this block with its connections
 
 - ros2 stuff
     - (optional) add every page of the gui as a ros2 executable, so a window with only this page starts
@@ -109,6 +120,9 @@
 - be strict/consistent about private ("_") instance variables and method names!
 - move expensive imports into methods/classes only where needed
 - use CustomFilter in filter_func to ignore emptry_row etc
+- change all "prints" into ros2_connector.logs
+- add groups for common ros2 interfaces formats (Pose/Quaternion/Transform etc) where exisiting rows that are implemented (like tf calc page normalize quat etc) can be reused
+    - maybe even for images??
 
 
 ## Bugs
@@ -126,4 +140,4 @@
 - "Failed to realize renderer of type 'GskNglRenderer' for surface 'GdkX11Toplevel': GL-Kontext kann nicht erstellt werden"
 - in pub:
     - when an exisiting topic is selected, then the topic name changed, the type changed and the name back to the suggested, an exisiting topic name will get a different type, which results in an error (RCLError)
-
+- in topics with multiple message type, only one row is shown with the msg type (separated by comma), which leads to a nonexisting interface_info page, make this into multiple rows
