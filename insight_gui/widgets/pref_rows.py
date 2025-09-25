@@ -19,6 +19,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 # =============================================================================
+
 from typing import Callable, Type
 import re
 
@@ -29,7 +30,6 @@ gi.require_version("Adw", "1")
 from gi.repository import GObject, Gtk, Adw, Gdk, GLib, Gio, Pango
 
 from insight_gui.widgets.buttons import ToggleButton, CopyButton
-from insight_gui.utils.constants import ON_ICON, OFF_ICON
 
 
 class PrefRowInterface(GObject.GObject):
@@ -118,6 +118,7 @@ class PrefRow(Adw.ActionRow, PrefRowInterface):
         self.title_lbl.set_hexpand(True)
         self.title_lbl.set_halign(Gtk.Align.FILL)
         self.title_lbl.set_single_line_mode(True)
+        # fixes: reported min width 12 and natural width 10 in measure() with for_size=16; natural size must be >= min size
         self.title_lbl.set_width_chars(12)
 
         self.subtitle_lbl: Gtk.Label = self.title_lbl.get_next_sibling()
@@ -125,6 +126,7 @@ class PrefRow(Adw.ActionRow, PrefRowInterface):
         self.subtitle_lbl.set_hexpand(True)
         self.subtitle_lbl.set_halign(Gtk.Align.FILL)
         self.subtitle_lbl.set_single_line_mode(True)
+        # fixes: reported min width 12 and natural width 10 in measure() with for_size=16; natural size must be >= min size
         self.subtitle_lbl.set_width_chars(12)
 
         # react to hide header
@@ -237,8 +239,8 @@ class PrefRow(Adw.ActionRow, PrefRowInterface):
             else:
                 nav_view.push(subpage)
 
-        if hasattr(self, "subpage_signal_handler"):
-            super().disconnect(self.subpage_signal_handler)
+        # if hasattr(self, "subpage_signal_handler"):
+        #     super().disconnect(self.subpage_signal_handler)
 
         self.gesture_click = Gtk.GestureClick()
         self.subpage_signal_handler = self.gesture_click.connect("pressed", _on_pressed)
@@ -936,6 +938,90 @@ class ButtonRow(Adw.PreferencesRow, PrefRowInterface):
         return self.btn_label.get_label().lower()
 
 
+# TODO make the multibtn and mutlitogglebtn rows inherit from the multiwidget row
+class MultiWidgetRow(Adw.PreferencesRow, PrefRowInterface):
+    __gtype_name__ = "MultiWidgetRow"
+
+    def __init__(self, **kwargs):
+        Adw.PreferencesRow.__init__(self, **kwargs)
+        PrefRowInterface.__init__(self)
+        super().set_activatable(False)
+
+        self.content_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=6,
+            halign=Gtk.Align.FILL,
+            hexpand=True,
+            margin_top=8,
+            margin_bottom=8,
+            margin_start=12,
+            margin_end=12,
+            css_classes=["linked"],
+            **kwargs,
+        )
+        super().set_child(self.content_box)
+        self.widgets = []
+
+    def add_widget(self, widget: Gtk.Widget, prepend: bool = False) -> Gtk.Widget:
+        if prepend:
+            self.content_box.prepend(widget)
+        else:
+            self.content_box.append(widget)
+
+        self.widgets.append(widget)
+        return widget
+
+    def add_widgets(self, widgets: list[Gtk.Widget], prepend: bool = False):
+        for widget in widgets:
+            self.add_widget(widget, prepend=prepend)
+
+        return self.widgets
+
+
+class MultiBoxRow(Adw.PreferencesRow, PrefRowInterface):
+    __gtype_name__ = "MultiBoxRow"
+
+    def __init__(self, **kwargs):
+        Adw.PreferencesRow.__init__(self, **kwargs)
+        PrefRowInterface.__init__(self)
+        super().set_activatable(False)
+
+        self.content_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=6,
+            halign=Gtk.Align.FILL,
+            hexpand=True,
+            margin_top=8,
+            margin_bottom=8,
+            margin_start=12,
+            margin_end=12,
+            css_classes=["linked"],
+            **kwargs,
+        )
+        super().set_child(self.content_box)
+
+        self.boxes = []
+
+    def add_label_pair(self, title: str, subtitle: str, property: bool = False, **kwargs) -> Gtk.Widget:
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=6,
+            halign=Gtk.Align.FILL,
+            hexpand=True,
+            # margin_top=8,
+            # margin_bottom=8,
+            # margin_start=12,
+            # margin_end=12,
+            css_classes=["title"],
+        )
+        box.append(Gtk.Label(label=title, xalign=0.0, css_classes=["title"]))
+        box.append(Gtk.Label(label=subtitle, xalign=0.0, css_classes=["subtitle"]))
+
+        self.content_box.append(box)
+        self.boxes.append(box)
+        return box
+
+
 class MultiButtonRow(Adw.PreferencesRow, PrefRowInterface):
     __gtype_name__ = "MultiButtonRow"
 
@@ -988,10 +1074,16 @@ class MultiToggleButtonRow(AdditionalContentRow):
         )
 
         self.activate_all_btn = self.add_suffix_btn(
-            icon_name=ON_ICON, tooltip_text="Activate all", func=self.toggle_all, func_kwargs={"active": True}
+            icon_name="check-round-outline-symbolic",
+            tooltip_text="Activate all",
+            func=self.toggle_all,
+            func_kwargs={"active": True},
         )
         self.deactivate_all_btn = self.add_suffix_btn(
-            icon_name=OFF_ICON, tooltip_text="Deactivate all", func=self.toggle_all, func_kwargs={"active": False}
+            icon_name="cross-small-circle-outline-symbolic",
+            tooltip_text="Deactivate all",
+            func=self.toggle_all,
+            func_kwargs={"active": False},
         )
         self.suffixes_box.add_css_class("linked")
 
