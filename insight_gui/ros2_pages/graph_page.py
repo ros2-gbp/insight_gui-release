@@ -20,9 +20,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # =============================================================================
 
-import networkx as nx
-from operator import itemgetter
-
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -31,9 +28,13 @@ from gi.repository import Gtk, Adw
 
 from insight_gui.widgets.content_page import ContentPage
 from insight_gui.widgets.canvas import Canvas
-from insight_gui.widgets.canvas_blocks import NodeBlock, TopicBlock, InterfaceBlock
-
-# look into: https://github.com/ros-visualization/rqt_graph/tree/jazzy
+from insight_gui.widgets.canvas_blocks import (
+    NodeBlock,
+    TopicBlock,
+    ServiceBlock,
+    ActionBlock,
+    ParameterBlock,
+)
 
 
 class GraphPage(ContentPage):
@@ -42,6 +43,8 @@ class GraphPage(ContentPage):
     def __init__(self):
         super().__init__(searchable=False)
         super().set_title("Graph")
+        super().set_refresh_fail_text("No nodes found. Refresh to try again.")
+
         self.content_stack.remove(self.pref_page)
         del self.pref_page
 
@@ -52,103 +55,147 @@ class GraphPage(ContentPage):
         # - a latex/tixz file
         # TODO make the graph viz adjustable, by exposing a selection for the different nx layouts and its params
 
+        # Create canvas
         self.canvas = Canvas()
         self.content_stack.add_child(self.canvas)
 
-        self.nx_graph = nx.DiGraph()
-
     def refresh_bg(self):
-        self.nx_graph.clear()
+        # Clear previous data
+        self.canvas.clear()
 
-        # get all nodes and topics
+        # get all nodes, topics, services, actions
         self.available_nodes = self.ros2_connector.get_available_nodes()
-        self.available_topics = self.ros2_connector.get_available_topics()
+        self.available_publishers = {}
+        self.available_subscribers = {}
+        self.available_service_servers = {}
+        self.available_service_clients = {}
+        self.available_action_servers = {}
+        self.available_action_clients = {}
+        self.available_parameters = {}
 
         # collect node and topic info
         for node_name, node_namespace, node_full_name in self.available_nodes:
-            self.nx_graph.add_node(node_full_name, type="node")
-
-            publishers = self.ros2_connector.get_publishers_by_node(node_name=node_name, node_namespace=node_namespace)
-            for topic_name, topic_types in publishers:
-                self.nx_graph.add_node(topic_name, type="topic")
-                self.nx_graph.add_edge(node_full_name, topic_name, type="publisher")
-
-            subscribers = self.ros2_connector.get_subscribers_by_node(
+            # Add publishers to the node
+            self.available_publishers[node_full_name] = self.ros2_connector.get_publishers_by_node(
                 node_name=node_name, node_namespace=node_namespace
             )
-            for topic_name, topic_types in subscribers:
-                self.nx_graph.add_node(topic_name, type="topic")
-                self.nx_graph.add_edge(topic_name, node_full_name, type="subscriber")
 
-            # services = self.ros2_connector.node.get_service_names_and_types_by_node(
-            #     node_name=node_name, node_namespace=node_namespace
-            # )
-            # for service_name, service_types in services:
-            #     self.nx_graph.add_node(service_name, type="service")
-            #     self.nx_graph.add_edge(node_full_name, service_name, type="service")
+            # Add subscribers to the node
+            self.available_subscribers[node_full_name] = self.ros2_connector.get_subscribers_by_node(
+                node_name=node_name, node_namespace=node_namespace
+            )
 
-        # # collect topic info
-        # all_topics = sorted(get_topic_names_and_types(node=self.ros2_connector.node, include_hidden_topics=True))
+            # Add service servers to the node
+            self.available_service_servers[node_full_name] = self.ros2_connector.get_service_servers_by_node(
+                node_name=node_name, node_namespace=node_namespace
+            )
 
-        # for topic_name, topic_types in all_topics:
-        #     self.nx_graph.add_node(topic_name, type="topic")
+            # Add service clients to the node
+            self.available_service_clients[node_full_name] = self.ros2_connector.get_service_clients_by_node(
+                node_name=node_name, node_namespace=node_namespace
+            )
 
-        #     # Publishers (Node → Topic)
-        #     pub_infos = self.ros2_connector.node.get_publishers_info_by_topic(topic_name)
-        #     for pub in pub_infos:
-        #         pub_node = f"{pub.node_name}" if pub.node_namespace == "/" else f"{pub.node_namespace}/{pub.node_name}"
-        #         graph["connections"].append((pub_node, topic_name))
+            # Add actions servers to the node
+            self.available_action_servers[node_full_name] = self.ros2_connector.get_action_servers_by_node(
+                node_name=node_name, node_namespace=node_namespace
+            )
 
-        #     # Subscribers (Topic → Node)
-        #     sub_infos = node.get_subscriptions_info_by_topic(topic_name)
-        #     for sub in sub_infos:
-        #         sub_node = f"{sub.node_name}" if sub.node_namespace == "/" else f"{sub.node_namespace}/{sub.node_name}"
-        #         graph["connections"].append((topic_name, sub_node))
+            # Add actions clients to the node
+            self.available_action_clients[node_full_name] = self.ros2_connector.get_action_clients_by_node(
+                node_name=node_name, node_namespace=node_namespace
+            )
 
-        # self.plot_graph()
-        return len(self.available_nodes) + len(self.available_topics) > 0
+            # Add parameters to the node
+            self.available_parameters[node_full_name] = self.ros2_connector.get_parameters_by_node(node_name=node_name)
+
+        # TODO also add other topics etc here, that do not belong to any nodes
+
+        return len(self.available_nodes) > 0
 
     def refresh_ui(self):
-        self.nx_graph.graph["graph"] = {
-            "rankdir": "LR",
-            "nodesep": "0.5",  # Horizontal spacing between nodes (default ~0.25)
-            "ranksep": "2.5",  # Vertical spacing between layers (default ~0.5–1.0)
-        }
-        for node, data in self.nx_graph.nodes(data=True):
-            if data.get("type") == "node":
-                self.add_node_block(node)
-            elif data.get("type") == "topic":
-                self.add_topic_block(node)
+        # collect node and topic info
+        for node_name, node_namespace, node_full_name in self.available_nodes:
+            # Add node using unified interface
+            node_id = self.canvas.add_block(
+                block_class=NodeBlock,
+                block_args={"node_name": node_name, "node_namespace": node_namespace, "node_full_name": node_full_name},
+            )
 
-        for source, target, data in self.nx_graph.edges(data=True):
-            self.canvas.add_connection(self.canvas.get_block(source), self.canvas.get_block(target))
-            # if data.get("type") == "publisher":
-            #     self.connections.append((self.blocks[source], self.blocks[target]))
-            # elif data.get("type") == "subscriber":
-            #     self.connections.append((self.blocks[source], self.blocks[target]))
+            # Add publishers to the node
+            for topic_name, topic_types in self.available_publishers[node_full_name]:
+                topic_id = self.canvas.add_block(
+                    block_class=TopicBlock,
+                    block_args={"topic_name": topic_name, "topic_types": topic_types},
+                )
+                self.canvas.connect_blocks(node_id, topic_id)
 
-        # layout nodes
-        self.canvas.layout_from_graph(self.nx_graph)
+            # Add subscribers to the node
+            for topic_name, topic_types in self.available_subscribers[node_full_name]:
+                topic_id = self.canvas.add_block(
+                    block_class=TopicBlock,
+                    block_args={"topic_name": topic_name, "topic_types": topic_types},
+                )
+                self.canvas.connect_blocks(topic_id, node_id)
+
+            # Add service servers to the node
+            for service_name, service_types in self.available_service_servers[node_full_name]:
+                service_id = self.canvas.add_block(
+                    block_class=ServiceBlock,
+                    block_args={
+                        "service_name": service_name,
+                        "service_types": service_types,
+                    },
+                )
+                self.canvas.connect_blocks(node_id, service_id)
+
+            # Add service clients to the node
+            for service_name, service_types in self.available_service_clients[node_full_name]:
+                service_id = self.canvas.add_block(
+                    block_class=ServiceBlock,
+                    block_args={
+                        "service_name": service_name,
+                        "service_types": service_types,
+                    },
+                )
+                self.canvas.connect_blocks(service_id, node_id)
+
+            # Add actions servers to the node
+            for action_name, action_types in self.available_action_servers[node_full_name]:
+                action_id = self.canvas.add_block(
+                    block_class=ActionBlock,
+                    block_args={
+                        "action_name": action_name,
+                        "action_types": action_types,
+                    },
+                )
+                self.canvas.connect_blocks(node_id, action_id)
+
+            # Add actions clients to the node
+            for action_name, action_types in self.available_action_clients[node_full_name]:
+                action_id = self.canvas.add_block(
+                    block_class=ActionBlock,
+                    block_args={
+                        "action_name": action_name,
+                        "action_types": action_types,
+                    },
+                )
+                self.canvas.connect_blocks(action_id, node_id)
+
+            # Add parameters to the node
+            for parameter_name in self.available_parameters[node_full_name]:
+                # param_full_name = f"{node_full_name}/{parameter_name}"
+                param_id = self.canvas.add_block(
+                    block_class=ParameterBlock,
+                    block_args={
+                        "parameter_name": parameter_name,
+                        "node_full_name": node_full_name,
+                    },
+                )
+                self.canvas.connect_blocks(node_id, param_id)
 
         self.show_banner("The Graph page is still experimental")  # DEBUG
+        self.canvas.calculate_layout()
 
     def reset_ui(self):
-        self.canvas.clear()
-
-    def add_node_block(self, node_full_name: str):
-        node_block = NodeBlock(node_full_name)
-        self.canvas.add_block(node_block, node_full_name)
-
-    def add_topic_block(self, topic_name: str, topic_types: str | list[str] = None):
-        if topic_types is None:
-            for name, types in self.available_topics:
-                if name == topic_name:
-                    topic_types = types
-                    break
-
-        topic_block = TopicBlock(topic_name, topic_types)
-        self.canvas.add_block(topic_block, topic_name)
-
-    def add_interface_block(self, interface_name: str):
-        interface_block = InterfaceBlock(interface_name)
-        self.canvas.add_block(interface_block, interface_name)
+        # self.canvas.clear()
+        pass
